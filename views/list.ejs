@@ -1,10 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-US">
 <head>
-  <title>ToDo App</title>
-  <link rel='stylesheet' href='stylesheets/style.css'/>
+    <title>ToDo App</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-<p>Today is... <%= day %></p>
+
+<div class="box" id="heading">
+    <h1><%= day %></h1>
+</div>
+
+<div class="box">
+    <% items.forEach(item => { %>
+        <form action="/delete" method="post">
+            <div class="item">
+                <input type="checkbox" name="checkbox" onchange="this.form.submit()" value="<%= item._id %>">
+                <p><%= item.name %></p>
+            </div>
+        </form>
+    <% }) %>
+
+    <div class="item">
+        <form action="/" method="POST">
+            <input type="text" name="newItem" autocomplete="off" placeholder="New Item">
+            <button type="submit" name="button">+</button>
+        </form>
+    </div>
+</div>
+
+
 </body>
 </html>
