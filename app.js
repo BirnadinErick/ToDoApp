@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require("body-parser")
 const app = express();
 const mongoose = require('mongoose');
+const _ = require('lodash');
 /////////////////////////////////////////////////////////////
 
 // Settings ////////////////////////////////////////////////
@@ -15,8 +16,12 @@ app.use(bodyParser.urlencoded({extended: true}));
 // New connection
 mongoose.connect('mongodb://localhost:27017/todolistDB', {useNewUrlParser: true, useUnifiedTopology: true});
 // Model schema representation and initialization
+// Schema
 const itemsSchema = mongoose.Schema({name: String});
+const listSchema = mongoose.Schema({name: String, items: [itemsSchema]});
+// Models
 const Item = mongoose.model("item", itemsSchema);
+const List = mongoose.model("list", listSchema);
 // New documents creation
 const item1 = new Item({name: "Buy Food"});
 const item2 = new Item({name: "Cook Food"});
@@ -27,13 +32,6 @@ const defaultItems = [item1, item2, item3];
 // Routes ////////////////////////////////////////////////
 // GET routes
 app.get('/', function (req, res) {
-    let date = new Date();
-    const options = {
-        weekday: "long",
-        day: "numeric",
-        month: "long"
-    };
-    let day = date.toLocaleString("en-US", options);
     // Bringing data from db
     Item.find({}, (err, results) => {
         if (err) {
@@ -49,27 +47,73 @@ app.get('/', function (req, res) {
                 }
             });
         } else {
-            res.render("list", {day: day, items: results});
+            res.render("list", {title: "Today", items: results});
         }
     });
 
+});
+
+app.get('/favicon.ico', (req, res) => {
+    // console.log("favicon.ico");
+});
+
+app.get("/:customListName", function (req, res) {
+    const customListName = _.lowerCase(req.params.customListName);
+
+    List.findOne({name: customListName}, function (err, foundDoc) {
+        if (err) {
+            console.log(err);
+        } else if (foundDoc) {
+            res.render('list', {title: _.capitalize(customListName), items: foundDoc.items});
+        } else {
+            const list = new List({
+                name: customListName,
+                items: defaultItems
+            });
+            list.save();
+            res.redirect('/' + customListName);
+        }
+    });
 });
 
 // POST routes
 app.post('/', function (req, res) {
-    const newItem = new Item({name: req.body.newItem}).save();
-    res.redirect('/');
+    const newItem = new Item({name: req.body.newItem});
+    const listName = _.lowerCase(req.body.listName);
+
+    if (listName === "today") {
+        newItem.save();
+        res.redirect('/');
+    } else {
+        List.findOne({name: listName}, (err, foundDoc) => {
+            foundDoc.items.push(newItem);
+            foundDoc.save();
+            res.redirect('/' + listName);
+        });
+    }
+
 });
 
 app.post('/delete', function (req, res) {
     const itemID = req.body.checkbox;
-    Item.findByIdAndRemove(itemID, (err) => {
-        if (err) {
-            console.log(err);
-        } else {
-            res.redirect('/');
-        }
-    });
+    const listName = _.lowerCase(req.body.listName);
+
+    if (listName === "today"){
+        Item.findByIdAndRemove(itemID, (err) => {
+            if (err) {
+                console.log(err);
+            } else {
+                res.redirect('/');
+            }
+        });
+    }else{
+        List.findOneAndUpdate({name:listName},{$pull:{items:{_id:itemID}}},(err,result)=>{
+            if (!err) {
+                res.redirect('/'+listName);
+            }
+        });
+    }
+
 });
 /////////////////////////////////////////////////////////////
 
